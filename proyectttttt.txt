@@ -1,0 +1,80 @@
+Creación de la Arquitectura y Desarrollo del Proceso de Extracción de su Proyecto
+Descripción General
+En esta práctica, los estudiantes deberán diseñar la arquitectura base y desarrollar el
+proceso de extracción (E de ETL) correspondiente a su proyecto. El enfoque estará en
+garantizar que la arquitectura cumpla con los atributos de calidad especificados en los
+requisitos no funcionales, tales como rendimiento, escalabilidad, seguridad y
+mantenibilidad.
+Objetivos de Aprendizaje
+Al finalizar la práctica, el estudiante será capaz de:
+1. Diseñar una arquitectura orientada a servicios que soporte un proceso ETL
+escalable.
+2. Desarrollar los componentes necesarios según el tipo de fuente y procesamiento
+de dato de su proyecto.
+3. Aplicar principios de calidad arquitectónica (rendimiento, seguridad,
+mantenibilidad y escalabilidad).
+4. Documentar el flujo de extracción y justificar las decisiones arquitectónicas.
+Actividades a Realizar
+1. Diseño de la Arquitectura
+• Crear un diagrama de arquitectura donde se identifiquen los siguientes
+componentes:
+o Servicio ETL (Worker Service).
+o Fuentes de datos: CSV, Base de Datos relacional y API REST.
+o Base de datos analítica.
+o Módulo de visualización o dashboard.
+• Incluir en la documentación cómo la arquitectura propuesta garantiza:
+o Rendimiento: Procesamiento eficiente de grandes volúmenes de datos.
+o Escalabilidad: Facilidad para agregar nuevas fuentes de datos.
+o Seguridad: Manejo seguro de credenciales de conexión y llamadas API.
+o Mantenibilidad: Uso de capas y patrones (por ejemplo, Clean Architecture o
+Onion Architecture).
+2. Implementación del Proceso de Extracción
+• Desarrollar un Worker Service en .NET 8 que implemente el proceso de extracción:
+o CSV: Leer encuestas internas con CsvHelper o similar.
+o Base de Datos: Consultar reseñas desde una BD relacional.
+o API REST: Consumir comentarios mediante HttpClient.
+• Guardar los datos extraídos en archivos temporales o tablas staging.
+• Registrar logs de eventos y errores utilizando ILogger.
+3. Validación del Cumplimiento de Atributos de Calidad
+• Explicar brevemente cómo el código y la arquitectura implementada garantizan:
+o Rendimiento: uso de tareas asíncronas y paralelismo.
+o Escalabilidad: configuración modular de fuentes.
+o Seguridad: manejo de credenciales mediante appsettings.json seguro.
+o Mantenibilidad: separación de responsabilidades en clases y servicios.
+4. Documentación
+• Entregar un documento técnico que contenga:
+o Diagrama de arquitectura.
+o Diagrama de flujo del proceso ETL.
+o Justificación de las decisiones técnicas adoptadas.
+o Evidencia del código del proceso de extracción.
+Entregables
+1. Código fuente en github del Worker Service (.NET 8) que realiza la extracción.
+2. Diagrama de arquitectura (puede ser elaborado en Draw.io, Lucidchart o Visio).
+3. Documento técnico en Word o PDF que incluya la justificación de la arquitectura.
+Sugerencias para tomar en cuenta
+• Utilizar principios SOLID y Clean Architecture para el diseño.
+• Centralicen las configuraciones (fuentes, rutas, credenciales) en archivos JSON.
+• Usen interfaces para abstraer las fuentes de datos.
+• Consideren crear una interfaz IExtractor y clases como CsvExtractor,
+DatabaseExtractor, ApiExtractor.
+• Validen el rendimiento usando Stopwatch o métricas de logging.
+Componentes sugeridos
+Componente Descripción Tecnología Responsabilidad
+CsvExtractor Extrae datos de los
+archivos csv
+C#, CsvHelper Lee y valida archivos CSV
+DatabaseExtractor Extrae la data de la BD
+relacional
+C#, ADO.NET o EF
+Core
+Ejecuta queries definidos
+ApiExtractor Consume API REST C#,
+IHttpClientFactory
+Recupera los datos del api
+según su proyecto
+DataLoader Inserta datos procesados
+en la BD analítica
+ADO.NET / EF Core Inserción final
+LoggerService Registra logs de ejecución
+y errores
+ILogger / Serilog Monitoreo y trazabilidad
