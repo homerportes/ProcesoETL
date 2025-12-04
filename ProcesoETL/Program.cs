@@ -35,6 +35,12 @@ try
             builder.Configuration.GetConnectionString("AnalyticsDb"),
             sqlOptions => sqlOptions.EnableRetryOnFailure()));
 
+    // Register Data Warehouse DbContext
+    builder.Services.AddDbContext<ProcesoETL.Data.DWDbContext>(options =>
+        options.UseSqlServer(
+            builder.Configuration.GetConnectionString("AnalyticsDb"),
+            sqlOptions => sqlOptions.EnableRetryOnFailure()));
+
     // Register services
     builder.Services.AddScoped<DbContext>(provider => provider.GetRequiredService<AppDbContext>());
     builder.Services.AddScoped<IStagingService, StagingService>();

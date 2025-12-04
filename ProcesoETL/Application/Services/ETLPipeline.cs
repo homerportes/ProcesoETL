@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using ProcesoETL.Core.Configuration;
 using ProcesoETL.Core.Interfaces;
 using ProcesoETL.Infrastructure.Extractors;
+using ProcesoETL.Infrastructure.Services;
 using Domain.Models;
 using System.Diagnostics;
 
@@ -215,17 +216,23 @@ public class ETLPipeline
             .Select(g => g.First())
             .ToList();
 
+        // *** KEY TRANSFORMATION: Join Orders + OrderDetails to create Sales Records ***
+        var stagingService = _stagingService as StagingService;
+        var salesRecords = await stagingService!.ProcessSalesDataAsync(
+            transformedOrders,
+            orderDetails,
+            transformedProducts);
+
         // Save transformed data back to staging
         await _stagingService.SaveToStagingAsync(transformedCustomers, "Customers_Transformed");
         await _stagingService.SaveToStagingAsync(transformedProducts, "Products_Transformed");
-        await _stagingService.SaveToStagingAsync(transformedOrders, "Orders_Transformed");
-        await _stagingService.SaveToStagingAsync(orderDetails, "OrderDetails_Transformed");
+        await _stagingService.SaveToStagingAsync(salesRecords, "Sales_Transformed");
 
         _logger.LogInformation(
-            "Transform phase completed: {CustomerCount} customers, {ProductCount} products, {OrderCount} orders",
+            "Transform phase completed: {CustomerCount} customers, {ProductCount} products, {SalesCount} sales",
             transformedCustomers.Count,
             transformedProducts.Count,
-            transformedOrders.Count);
+            salesRecords.Count);
     }
 
     private async Task LoadPhaseAsync(CancellationToken cancellationToken)
@@ -237,16 +244,21 @@ public class ETLPipeline
             // Load transformed data from staging
             var customers = await _stagingService.LoadFromStagingAsync<Customer>("Customers_Transformed");
             var products = await _stagingService.LoadFromStagingAsync<Product>("Products_Transformed");
-            var orders = await _stagingService.LoadFromStagingAsync<Order>("Orders_Transformed");
-            var orderDetails = await _stagingService.LoadFromStagingAsync<OrderDetail>("OrderDetails_Transformed");
+            var salesRecords = await _stagingService.LoadFromStagingAsync<SaleRecord>("Sales_Transformed");
 
-            // Load into database
-            await _dataLoader.LoadWithIdentityAsync(customers, "Customers", "CustomerID");
-            await _dataLoader.LoadWithIdentityAsync(products, "Products", "ProductID");
-            await _dataLoader.LoadWithIdentityAsync(orders, "Orders", "OrderID");
-            await _dataLoader.LoadWithIdentityAsync(orderDetails, "OrderDetails", "OrderDetailID");
+            // Load into Data Warehouse
+            // Dimensions first (UPSERT logic)
+            await _dataLoader.LoadAsync(customers);
+            await _dataLoader.LoadAsync(products);
+            
+            // Fact table (INSERT only)
+            await _dataLoader.LoadAsync(salesRecords);
 
-            _logger.LogInformation("Load phase completed");
+            // Insert metadata record
+            var dataLoader = _dataLoader as DataLoader;
+            await dataLoader!.InsertMetadataAsync("CSV_ETL_Process");
+
+            _logger.LogInformation("Load phase completed - Data Warehouse updated successfully");
         }
         catch (Exception ex)
         {

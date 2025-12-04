@@ -60,7 +60,8 @@ public class StagingService : IStagingService
         try
         {
             var files = Directory.GetFiles(_stagingPath, $"{sourceName}_*.json")
-                .OrderByDescending(f => f)
+                .Select(f => new FileInfo(f))
+                .OrderByDescending(f => f.CreationTime)  // Sort by creation time, not alphabetically
                 .ToList();
 
             if (!files.Any())
@@ -69,7 +70,7 @@ public class StagingService : IStagingService
                 return Enumerable.Empty<T>();
             }
 
-            var latestFile = files.First();
+            var latestFile = files.First().FullName;
             var json = await File.ReadAllTextAsync(latestFile);
             var data = JsonSerializer.Deserialize<List<T>>(json) ?? new List<T>();
 
@@ -111,4 +112,79 @@ public class StagingService : IStagingService
             throw;
         }
     }
+
+    /// <summary>
+    /// Processes and joins Orders with OrderDetails to create sales records for Data Warehouse
+    /// Calculates Total = Quantity * UnitPrice from Product data
+    /// </summary>
+    public async Task<List<SaleRecord>> ProcessSalesDataAsync(
+        List<Domain.Models.Order> orders,
+        List<Domain.Models.OrderDetail> orderDetails,
+        List<Domain.Models.Product> products)
+    {
+        try
+        {
+            _logger.LogInformation("Starting sales data processing (joining Orders + OrderDetails)");
+
+            var productDict = products.ToDictionary(p => p.ProductID);
+            var orderDict = orders.ToDictionary(o => o.OrderID);
+
+            var salesRecords = new List<SaleRecord>();
+
+            foreach (var detail in orderDetails)
+            {
+                if (!orderDict.TryGetValue(detail.OrderID, out var order))
+                {
+                    _logger.LogWarning("Order {OrderID} not found for OrderDetail", detail.OrderID);
+                    continue;
+                }
+
+                if (!productDict.TryGetValue(detail.ProductID, out var product))
+                {
+                    _logger.LogWarning("Product {ProductID} not found for OrderDetail", detail.ProductID);
+                    continue;
+                }
+
+                // Calculate Total = Quantity * UnitPrice
+                var total = detail.Quantity * product.Price;
+
+                salesRecords.Add(new SaleRecord
+                {
+                    OrderID = order.OrderID,
+                    ProductID = product.ProductID,
+                    CustomerID = order.CustomerID,
+                    Quantity = detail.Quantity,
+                    UnitPrice = product.Price,
+                    Total = total,
+                    OrderDate = order.OrderDate
+                });
+            }
+
+            _logger.LogInformation("Processed {Count} sales records", salesRecords.Count);
+            
+            // Save to staging
+            await SaveToStagingAsync(salesRecords, "SalesRecords");
+
+            return salesRecords;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing sales data");
+            throw;
+        }
+    }
+}
+
+/// <summary>
+/// Represents a sales record ready for Data Warehouse Fact table loading
+/// </summary>
+public class SaleRecord
+{
+    public int OrderID { get; set; }
+    public int ProductID { get; set; }
+    public int CustomerID { get; set; }
+    public int Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
+    public decimal Total { get; set; }
+    public DateTime OrderDate { get; set; }
 }
